@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
-  title: Netsuite APIs
+  title: Netsuite API Contracts
   description: APIs to upload and update vendor mapping files for ingestion and processing.
   version: 1.0.0
 paths:
   /api/v1/payouts/:
     post:
-      summary: Upload a new file for processing payouts for vendors already registered.
+      summary: Upload a new file for processing payouts for vendors already registered. Gives a request Id to track further statuses.  
       description: Allows uploading an initial file for ingestion and processing via multipart form-data.
       operationId: uploadFile
       security:
@@ -42,7 +42,7 @@ paths:
                   message:
                     type: string
                     example: File uploaded successfully.
-                  requestId:
+                  cycleId:
                     type: string
                     example: 01936260-910b-721a-81e6-4277af8adb9c
                   processingStatus:
@@ -68,7 +68,7 @@ paths:
                   errorCode:
                     type: string
                     example: UPLOAD_ERROR
-  /api/v1/payouts/{requestId}:
+  /api/v1/payouts/{cycleId}:
     put:
       summary: Update an existing file by uploading a diff.
       description: Updates an existing file associated with the given request ID by uploading incremental changes via multipart form-data.
@@ -76,7 +76,7 @@ paths:
       security:
         - ApiKeyAuth: []
       parameters:
-        - name: requestId
+        - name: cycleId
           in: path
           required: true
           schema:
@@ -114,12 +114,9 @@ paths:
                   message:
                     type: string
                     example: File updated successfully.
-                  fileId:
+                  requestId:
                     type: string
                     example: 12345
-                  updateId:
-                    type: string
-                    example: 56789
                   processingStatus:
                     type: string
                     enum: [pending, in-progress, completed, failed]
@@ -137,6 +134,9 @@ paths:
                   message:
                     type: string
                     example: File update failed.
+                  details:
+                    type: string
+                    example: "Missing column name 'Amount' "
                   errorCode:
                     type: string
                     example: UPDATE_ERROR
