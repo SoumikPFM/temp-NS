@@ -226,7 +226,8 @@ paths:
                 properties:
                   error:
                     type: string
-                    description: Error message indicating the server issue.                  example: UPDATE_ERROR
+                    description: Error message indicating the server issue.                  
+                    example: UPDATE_ERROR
 components:
   securitySchemes:
     ApiKeyAuth:
