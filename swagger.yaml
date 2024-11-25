@@ -69,7 +69,7 @@ paths:
                     type: string
                     example: UPLOAD_ERROR
   /api/v1/payouts/{cycleId}:
-    put:
+    patch:
       summary: Update an existing cycle by uploading a diff. Diff can be fileType for now, can be extended later if needed.
       description: Updates an existing cycle data associated with the given cycle ID by uploading incremental changes via multipart form-data / other uploads going forward.
       operationId: updateFile
