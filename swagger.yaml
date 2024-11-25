@@ -70,8 +70,8 @@ paths:
                     example: UPLOAD_ERROR
   /api/v1/payouts/{cycleId}:
     put:
-      summary: Update an existing file by uploading a diff.
-      description: Updates an existing file associated with the given request ID by uploading incremental changes via multipart form-data.
+      summary: Update an existing cycle by uploading a diff. Diff can be fileType for now, can be extended later if needed.
+      description: Updates an existing cycle data associated with the given cycle ID by uploading incremental changes via multipart form-data / other uploads going forward.
       operationId: updateFile
       security:
         - ApiKeyAuth: []
@@ -94,12 +94,18 @@ paths:
                   type: string
                   format: binary
                   description: The diff file to upload. This must be the binary content of the file.
-                metadata:
+                diffType:
                   type: string
-                  format: json
-                  description: Metadata associated with the file update, in JSON format.
-              required:
-                - diffFile
+                  format: string
+                  default : file
+                  description: Type of diff being uploaded, "file" for file diffFile.
+                  
+                diffData:
+                  type: string
+                  format: JSON
+                  default : {}
+                  description: Diff Data being uploaded.  
+              
       responses:
         '200':
           description: File updated successfully.
@@ -139,7 +145,88 @@ paths:
                     example: "Missing column name 'Amount' "
                   errorCode:
                     type: string
-                    example: UPDATE_ERROR
+ 
+  /api/v1/cycles/updates:
+    get:
+      summary: Get status of a cycle or an update
+      description: Retrieve the status of a specific cycle or a subtask (update) within the cycle.
+      parameters:
+        - name: cycleId
+          in: query
+          required: true
+          description: The unique identifier of the cycle.
+          schema:
+            type: string
+        - name: updateId
+          in: query
+          required: false
+          description: The unique identifier of the update within the cycle. If not provided, the status of the entire cycle is returned.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response with the status details of the cycle or update.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cycleId:
+                    type: string
+                    description: The unique identifier of the cycle.
+                  updateId:
+                    type: string
+                    description: The unique identifier of the update (if applicable).
+                  status:
+                    type: string
+                    description: Current status (e.g., pending, completed, failed, payment initiated, payment successful).
+                  message:
+                    type: string
+                    description: Additional details about the status.
+                  fileUrl:
+                    type: string
+                    description: (Optional) URL to download the file related to the cycle or update.
+              examples:
+                cycle-status:
+                  summary: Fetch status about a cycle
+                  value:
+                    cycleId: "cycle-123"
+                    status: "Payment successful"
+                    message: "Payment processed successfully."
+                    fileUrl: "https://s3.amazonaws.com/bucket/cycle-123-results.csv"
+                update-status:
+                  summary: Fetch status about a subtask with an updateId
+                  value:
+                    cycleId: "cycle-123"
+                    updateId: "update-001"
+                    status: "Completed"
+                    message: "Update processed successfully."
+                payment-initiated:
+                  summary: Fetch cycle status when payment is initiated
+                  value:
+                    cycleId: "cycle-456"
+                    status: "Payment initiated"
+                    message: "Payment has been initiated, awaiting confirmation."
+        '400':
+          description: Bad request if required parameters are missing or invalid.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message indicating the issue.
+        '500':
+          description: Server error due to unexpected issues.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message indicating the server issue.                  example: UPDATE_ERROR
 components:
   securitySchemes:
     ApiKeyAuth:
