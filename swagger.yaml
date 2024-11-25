@@ -214,9 +214,47 @@ paths:
               schema:
                 type: object
                 properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the issue.
                   error:
                     type: string
                     description: Error message indicating the issue.
+              examples:
+                missing-cycleId:
+                  summary: Missing cycleId
+                  value:
+                    errorCode: "MISSING_PARAMETER"
+                    error: "The 'cycleId' parameter is required."
+                invalid-updateId:
+                  summary: Invalid updateId
+                  value:
+                    errorCode: "INVALID_UPDATE_ID"
+                    error: "The provided 'updateId' was not found."
+                missing-column:
+                  summary: Update not processed due to missing column
+                  value:
+                    errorCode: "MISSING_COLUMN"
+                    error: "Update failed: Missing required column 'Amount' in the uploaded file."
+        '404':
+          description: Not found if the cycle or update does not exist.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the issue.
+                  error:
+                    type: string
+                    description: Error message indicating the issue.
+              examples:
+                cycle-not-found:
+                  summary: Cycle ID not found
+                  value:
+                    errorCode: "CYCLE_NOT_FOUND"
+                    error: "The specified 'cycleId' does not exist."
         '500':
           description: Server error due to unexpected issues.
           content:
@@ -224,10 +262,18 @@ paths:
               schema:
                 type: object
                 properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the server issue.
                   error:
                     type: string
-                    description: Error message indicating the server issue.                  
-                    example: UPDATE_ERROR
+                    description: Error message indicating the server issue.
+              examples:
+                internal-error:
+                  summary: Internal server error
+                  value:
+                    errorCode: "INTERNAL_ERROR"
+                    error: "An unexpected error occurred. Please try again later."
 components:
   securitySchemes:
     ApiKeyAuth:
