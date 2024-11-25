@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: File Management API
+  title: Netsuite APIs
   description: APIs to upload and update vendor mapping files for ingestion and processing.
   version: 1.0.0
 paths:
