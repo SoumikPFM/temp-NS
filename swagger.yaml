@@ -125,8 +125,8 @@ paths:
                     example: 12345
                   processingStatus:
                     type: string
-                    enum: [pending, in-progress, completed, failed]
-                    example: pending
+                    enum: [PENDING, FILE_RECEIVED]
+                    example: FILE_RECEIVED
         '400':
           description: Bad request.
           content:
@@ -146,7 +146,7 @@ paths:
                   errorCode:
                     type: string
  
-  /api/v1/cycles/status:
+  /api/v1/payouts/status:
     get:
       summary: Get status of a cycle or an update
       description: Retrieve the status of a specific cycle or a subtask (update) within the cycle.
@@ -190,22 +190,18 @@ paths:
                 cycle-status:
                   summary: Fetch status about a cycle
                   value:
-                    cycleId: "cycle-123"
-                    status: "Payment successful"
+                    status: "PAYMENT_DONE"
                     message: "Payment processed successfully."
                     fileUrl: "https://s3.amazonaws.com/bucket/cycle-123-results.csv"
                 update-status:
                   summary: Fetch status about a subtask with an updateId
                   value:
-                    cycleId: "cycle-123"
-                    updateId: "update-001"
-                    status: "Completed"
+                    status: "FILE_RECEIVED"
                     message: "Update processed successfully."
                 payment-initiated:
                   summary: Fetch cycle status when payment is initiated
                   value:
-                    cycleId: "cycle-456"
-                    status: "Payment initiated"
+                    status: "PAYMENT_INITIATED"
                     message: "Payment has been initiated, awaiting confirmation."
         '400':
           description: Bad request if required parameters are missing or invalid.
