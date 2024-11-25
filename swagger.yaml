@@ -97,7 +97,7 @@ paths:
                 diffType:
                   type: string
                   format: string
-                  default : file
+                  default : "file"
                   description: Type of diff being uploaded, "file" for file diffFile.
                   
                 diffData:
