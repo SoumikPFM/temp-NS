@@ -113,30 +113,27 @@ paths:
                   value:
                     errorCode: "INTERNAL_ERROR"
                     error: "An unexpected error occurred. Please try again later."
-  /api/v1/payouts/:
+  /api/v1/payouts:
     post:
-      summary: Upload a new file for processing payouts for vendors already registered. Gives a request Id to track further statuses.  
-      description: Allows uploading an initial file for ingestion and processing via multipart form-data.
-      operationId: uploadFile
-      security:
-        - ApiKeyAuth: []
+      summary: Upload a new file for payouts
+      operationId: uploadPayoutFile
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
+              required:
+                - requestId
+                - file
               properties:
-                fileContent:
+                requestId:
+                  type: string
+                  description: Unique identifier for the request.
+                file:
                   type: string
                   format: binary
-                  description: The file to upload. This must be the binary content of the file.
-                metadata:
-                  type: string
-                  format: json
-                  description: Metadata associated with the file upload, in JSON format.
-              required:
-                - fileContent
+                  description: File to be uploaded.
       responses:
         '200':
           description: File uploaded successfully.
@@ -145,76 +142,86 @@ paths:
               schema:
                 type: object
                 properties:
-                  status:
+                  requestId:
                     type: string
-                    example: success
+                    description: Request identifier.
                   message:
                     type: string
-                    example: File uploaded successfully.
-                  cycleId:
-                    type: string
-                    example: 01936260-910b-721a-81e6-4277af8adb9c
-                  processingStatus:
-                    type: string
-                    enum: [pending, in-progress, completed, failed]
-                    example: pending
+                    example: "File uploaded successfully."
         '400':
-          description: Bad request.
+          description: Bad Request.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  error:
                     type: string
-                    example: error
-                  message:
-                    type: string
-                    example: File upload failed.
-                  details:
-                    type: string
-                    example: "Missing column name 'Amount' "
-                  errorCode:
-                    type: string
-                    example: UPLOAD_ERROR
-  /api/v1/payouts/{cycleId}:
-    patch:
-      summary: Update an existing cycle by uploading a diff. Diff can be fileType for now, can be extended later if needed.
-      description: Updates an existing cycle data associated with the given cycle ID by uploading incremental changes via multipart form-data / other uploads going forward.
-      operationId: updateFile
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: cycleId
-          in: path
-          required: true
-          schema:
-            type: string
-            example: "01936260-910b-721a-81e6-4277af8adb9c"
-          description: The unique identifier of the file update request.
+                    example: "Invalid file format."
+    put:
+      summary: Override an existing payout file
+      operationId: overridePayoutFile
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
+              required:
+                - requestId
+                - file
               properties:
-                diffFile:
+                requestId:
+                  type: string
+                  description: Identifier of the file to be overridden.
+                file:
                   type: string
                   format: binary
-                  description: The diff file to upload. This must be the binary content of the file.
-                diffType:
+                  description: Replacement file to upload.
+      responses:
+        '200':
+          description: File overridden successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requestId:
+                    type: string
+                    description: Identifier of the overridden file.
+                  message:
+                    type: string
+                    example: "File overridden successfully."
+        '404':
+          description: File not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "File with given requestId not found."
+    patch:
+      summary: Update an existing payout file incrementally
+      operationId: updatePayoutFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - requestId
+                - file
+              properties:
+                requestId:
                   type: string
-                  format: string
-                  default : "file"
-                  description: Type of diff being uploaded, "file" for file diffFile.
-                  
-                diffData:
-                  type: object
-                  format: JSON
-                  default : {}
-                  description: Diff Data being uploaded.  
-              
+                  description: Identifier of the file to be updated.
+                file:
+                  type: string
+                  format: binary
+                  description: Incremental file to be uploaded.
       responses:
         '200':
           description: File updated successfully.
@@ -223,176 +230,79 @@ paths:
               schema:
                 type: object
                 properties:
-                  status:
-                    type: string
-                    example: success
-                  message:
-                    type: string
-                    example: File updated successfully.
                   requestId:
                     type: string
-                    example: 12345
-                  processingStatus:
+                    description: Identifier of the updated file.
+                  message:
                     type: string
-                    enum: [PENDING, FILE_RECEIVED]
-                    example: FILE_RECEIVED
-        '400':
-          description: Bad request.
+                    example: "File updated successfully."
+        '404':
+          description: File not found.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  error:
                     type: string
-                    example: error
-                  message:
-                    type: string
-                    example: File update failed.
-                  details:
-                    type: string
-                    example: "Missing column name 'Amount' "
-                  errorCode:
-                    type: string
- 
-  /api/v1/payouts/status:
+                    example: "File with given requestId not found."
+  /api/v1/payouts/{requestId}/status:
     get:
-      summary: Get status of a cycle or an update
-      description: Retrieve the status of a specific cycle or a subtask (update) within the cycle.
+      summary: Fetch the processing status of a request
+      operationId: getPayoutStatus
       parameters:
-        - name: cycleId
-          in: query
+        - name: requestId
+          in: path
           required: true
-          description: The unique identifier of the cycle.
           schema:
             type: string
-        - name: updateId
-          in: query
-          required: false
-          description: The unique identifier of the update within the cycle. If not provided, the status of the entire cycle is returned.
-          schema:
-            type: string
+          description: Identifier of the request to fetch the status for.
       responses:
         '200':
-          description: Successful response with the status details of the cycle or update.
+          description: Status fetched successfully.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  cycleId:
+                  requestId:
                     type: string
-                    description: The unique identifier of the cycle.
-                  updateId:
-                    type: string
-                    description: The unique identifier of the update (if applicable).
+                    description: Identifier of the request.
                   status:
                     type: string
-                    description: Current status (e.g., pending, completed, failed, payment initiated, payment successful).
-                  message:
-                    type: string
-                    description: Additional details about the status.
-                  fileUrl:
-                    type: string
-                    description: (Optional) URL to download the file related to the cycle or update.
-              examples:
-                cycle-status:
-                  summary: Fetch status about a cycle
-                  value:
-                    status: "PAYMENT_DONE"
-                    message: "Payment processed successfully."
-                    fileUrl: "https://s3.amazonaws.com/bucket/cycle-123-results.csv"
-                update-status:
-                  summary: Fetch status about a subtask with an updateId
-                  value:
-                    status: "FILE_RECEIVED"
-                    message: "Update processed successfully."
-                payment-initiated:
-                  summary: Fetch cycle status when payment is initiated
-                  value:
-                    status: "PAYMENT_INITIATED"
-                    message: "Payment has been initiated, awaiting confirmation."
-        '400':
-          description: Bad request if required parameters are missing or invalid.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  errorCode:
-                    type: string
-                    description: Error code for the issue.
-                  error:
-                    type: string
-                    description: Error message indicating the issue.
-              examples:
-                missing-cycleId:
-                  summary: Missing cycleId
-                  value:
-                    errorCode: "MISSING_PARAMETER"
-                    error: "The 'cycleId' parameter is required."
-                invalid-updateId:
-                  summary: Invalid updateId
-                  value:
-                    errorCode: "INVALID_UPDATE_ID"
-                    error: "The provided 'updateId' was not found."
-                missing-column:
-                  summary: Update not processed due to missing column
-                  value:
-                    errorCode: "MISSING_COLUMN"
-                    error: "Update failed: Missing required column 'Amount' in the uploaded file."
+                    description: Current status of the request.
+                    example: "Payment Completed"
+                  details:
+                    type: object
+                    description: Additional details about the request processing.
+                    properties:
+                      successfulRows:
+                        type: integer
+                        example: 95
+                      failedRows:
+                        type: integer
+                        example: 5
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            row:
+                              type: integer
+                              example: 3
+                            error:
+                              type: string
+                              example: "Invalid vendor ID."
+                      resultFileUrl:
+                        type: string
+                        example: "https://s3.amazonaws.com/bucket-name/path-to-file.csv"
         '404':
-          description: Not found if the cycle or update does not exist.
+          description: Request ID not found.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  errorCode:
-                    type: string
-                    description: Error code for the issue.
                   error:
                     type: string
-                    description: Error message indicating the issue.
-              examples:
-                cycle-not-found:
-                  summary: Cycle ID not found
-                  value:
-                    errorCode: "CYCLE_NOT_FOUND"
-                    error: "The specified 'cycleId' does not exist."
-        '500':
-          description: Server error due to unexpected issues.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  errorCode:
-                    type: string
-                    description: Error code for the server issue.
-                  error:
-                    type: string
-                    description: Error message indicating the server issue.
-              examples:
-                internal-error:
-                  summary: Internal server error
-                  value:
-                    errorCode: "INTERNAL_ERROR"
-                    error: "An unexpected error occurred. Please try again later."
-components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: x-api-key
-  schemas:
-    Schema:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-servers:
-  # Added by API Auto Mocking Plugin
-  - description: SwaggerHub API Auto Mocking
-    url: https://virtserver.swaggerhub.com/SoumikBhattacharyya/NetSuite/1.0.0
+                    example: "Request ID not found."

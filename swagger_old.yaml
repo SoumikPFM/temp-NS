@@ -1,0 +1,398 @@
+openapi: 3.0.3
+info:
+  title: Netsuite API Contracts
+  description: APIs to upload and update vendor mapping files for ingestion and processing.
+  version: 1.0.0
+paths:
+  /api/v1/vendors/:
+    post:
+      summary: Register vendors for authors
+      description: Create vendor records for a list of authors and return a mapping of author IDs to vendor IDs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - authorIds
+              properties:
+                authorIds:
+                  type: array
+                  description: List of unique author IDs to register as vendors.
+                  items:
+                    type: string
+                    example: "author-12345"
+      responses:
+        '201':
+          description: Vendors created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authorToVendorMap:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: A mapping of author IDs to their corresponding vendor IDs.
+              examples:
+                success:
+                  summary: Successful creation
+                  value:
+                    authorToVendorMap:
+                      author-12345: "vendor-12345"
+                      author-67890: "vendor-67890"
+        '400':
+          description: Bad request due to missing or invalid parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the issue.
+                  error:
+                    type: string
+                    description: Error message indicating the issue.
+              examples:
+                missing-authorIds:
+                  summary: Missing authorIds
+                  value:
+                    errorCode: "MISSING_PARAMETER"
+                    error: "The 'authorIds' field is required and must be a non-empty array."
+                invalid-authorId:
+                  summary: Invalid authorId
+                  value:
+                    errorCode: "INVALID_AUTHOR_ID"
+                    error: "One or more 'authorIds' are invalid."
+        '409':
+          description: Conflict if some authors are already registered as vendors.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the issue.
+                  error:
+                    type: string
+                    description: Error message indicating the issue.
+                  conflictedAuthors:
+                    type: array
+                    items:
+                      type: string
+                    description: List of author IDs that are already registered as vendors.
+              examples:
+                conflict:
+                  summary: Some authors already registered
+                  value:
+                    errorCode: "AUTHORS_ALREADY_REGISTERED"
+                    error: "The following authors are already registered as vendors."
+                    conflictedAuthors:
+                      - "author-12345"
+                      - "author-67890"
+        '500':
+          description: Server error due to unexpected issues.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the server issue.
+                  error:
+                    type: string
+                    description: Error message indicating the server issue.
+              examples:
+                internal-error:
+                  summary: Internal server error
+                  value:
+                    errorCode: "INTERNAL_ERROR"
+                    error: "An unexpected error occurred. Please try again later."
+  /api/v1/payouts/:
+    post:
+      summary: Upload a new file for processing payouts for vendors already registered. Gives a request Id to track further statuses.  
+      description: Allows uploading an initial file for ingestion and processing via multipart form-data.
+      operationId: uploadFile
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                fileContent:
+                  type: string
+                  format: binary
+                  description: The file to upload. This must be the binary content of the file.
+                metadata:
+                  type: string
+                  format: json
+                  description: Metadata associated with the file upload, in JSON format.
+              required:
+                - fileContent
+      responses:
+        '200':
+          description: File uploaded successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: File uploaded successfully.
+                  cycleId:
+                    type: string
+                    example: 01936260-910b-721a-81e6-4277af8adb9c
+                  processingStatus:
+                    type: string
+                    enum: [pending, in-progress, completed, failed]
+                    example: pending
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: File upload failed.
+                  details:
+                    type: string
+                    example: "Missing column name 'Amount' "
+                  errorCode:
+                    type: string
+                    example: UPLOAD_ERROR
+  /api/v1/payouts/{cycleId}:
+    patch:
+      summary: Update an existing cycle by uploading a diff. Diff can be fileType for now, can be extended later if needed.
+      description: Updates an existing cycle data associated with the given cycle ID by uploading incremental changes via multipart form-data / other uploads going forward.
+      operationId: updateFile
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "01936260-910b-721a-81e6-4277af8adb9c"
+          description: The unique identifier of the file update request.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                diffFile:
+                  type: string
+                  format: binary
+                  description: The diff file to upload. This must be the binary content of the file.
+                diffType:
+                  type: string
+                  format: string
+                  default : "file"
+                  description: Type of diff being uploaded, "file" for file diffFile.
+                  
+                diffData:
+                  type: object
+                  format: JSON
+                  default : {}
+                  description: Diff Data being uploaded.  
+              
+      responses:
+        '200':
+          description: File updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: File updated successfully.
+                  requestId:
+                    type: string
+                    example: 12345
+                  processingStatus:
+                    type: string
+                    enum: [PENDING, FILE_RECEIVED]
+                    example: FILE_RECEIVED
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: File update failed.
+                  details:
+                    type: string
+                    example: "Missing column name 'Amount' "
+                  errorCode:
+                    type: string
+ 
+  /api/v1/payouts/status:
+    get:
+      summary: Get status of a cycle or an update
+      description: Retrieve the status of a specific cycle or a subtask (update) within the cycle.
+      parameters:
+        - name: cycleId
+          in: query
+          required: true
+          description: The unique identifier of the cycle.
+          schema:
+            type: string
+        - name: updateId
+          in: query
+          required: false
+          description: The unique identifier of the update within the cycle. If not provided, the status of the entire cycle is returned.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response with the status details of the cycle or update.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cycleId:
+                    type: string
+                    description: The unique identifier of the cycle.
+                  updateId:
+                    type: string
+                    description: The unique identifier of the update (if applicable).
+                  status:
+                    type: string
+                    description: Current status (e.g., pending, completed, failed, payment initiated, payment successful).
+                  message:
+                    type: string
+                    description: Additional details about the status.
+                  fileUrl:
+                    type: string
+                    description: (Optional) URL to download the file related to the cycle or update.
+              examples:
+                cycle-status:
+                  summary: Fetch status about a cycle
+                  value:
+                    status: "PAYMENT_DONE"
+                    message: "Payment processed successfully."
+                    fileUrl: "https://s3.amazonaws.com/bucket/cycle-123-results.csv"
+                update-status:
+                  summary: Fetch status about a subtask with an updateId
+                  value:
+                    status: "FILE_RECEIVED"
+                    message: "Update processed successfully."
+                payment-initiated:
+                  summary: Fetch cycle status when payment is initiated
+                  value:
+                    status: "PAYMENT_INITIATED"
+                    message: "Payment has been initiated, awaiting confirmation."
+        '400':
+          description: Bad request if required parameters are missing or invalid.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the issue.
+                  error:
+                    type: string
+                    description: Error message indicating the issue.
+              examples:
+                missing-cycleId:
+                  summary: Missing cycleId
+                  value:
+                    errorCode: "MISSING_PARAMETER"
+                    error: "The 'cycleId' parameter is required."
+                invalid-updateId:
+                  summary: Invalid updateId
+                  value:
+                    errorCode: "INVALID_UPDATE_ID"
+                    error: "The provided 'updateId' was not found."
+                missing-column:
+                  summary: Update not processed due to missing column
+                  value:
+                    errorCode: "MISSING_COLUMN"
+                    error: "Update failed: Missing required column 'Amount' in the uploaded file."
+        '404':
+          description: Not found if the cycle or update does not exist.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the issue.
+                  error:
+                    type: string
+                    description: Error message indicating the issue.
+              examples:
+                cycle-not-found:
+                  summary: Cycle ID not found
+                  value:
+                    errorCode: "CYCLE_NOT_FOUND"
+                    error: "The specified 'cycleId' does not exist."
+        '500':
+          description: Server error due to unexpected issues.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the server issue.
+                  error:
+                    type: string
+                    description: Error message indicating the server issue.
+              examples:
+                internal-error:
+                  summary: Internal server error
+                  value:
+                    errorCode: "INTERNAL_ERROR"
+                    error: "An unexpected error occurred. Please try again later."
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    Schema:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+servers:
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/SoumikBhattacharyya/NetSuite/1.0.0
