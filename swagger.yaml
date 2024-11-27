@@ -4,6 +4,115 @@ info:
   description: APIs to upload and update vendor mapping files for ingestion and processing.
   version: 1.0.0
 paths:
+  /api/v1/vendors/:
+    post:
+      summary: Register vendors for authors
+      description: Create vendor records for a list of authors and return a mapping of author IDs to vendor IDs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - authorIds
+              properties:
+                authorIds:
+                  type: array
+                  description: List of unique author IDs to register as vendors.
+                  items:
+                    type: string
+                    example: "author-12345"
+      responses:
+        '201':
+          description: Vendors created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authorToVendorMap:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: A mapping of author IDs to their corresponding vendor IDs.
+              examples:
+                success:
+                  summary: Successful creation
+                  value:
+                    authorToVendorMap:
+                      author-12345: "vendor-12345"
+                      author-67890: "vendor-67890"
+        '400':
+          description: Bad request due to missing or invalid parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the issue.
+                  error:
+                    type: string
+                    description: Error message indicating the issue.
+              examples:
+                missing-authorIds:
+                  summary: Missing authorIds
+                  value:
+                    errorCode: "MISSING_PARAMETER"
+                    error: "The 'authorIds' field is required and must be a non-empty array."
+                invalid-authorId:
+                  summary: Invalid authorId
+                  value:
+                    errorCode: "INVALID_AUTHOR_ID"
+                    error: "One or more 'authorIds' are invalid."
+        '409':
+          description: Conflict if some authors are already registered as vendors.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the issue.
+                  error:
+                    type: string
+                    description: Error message indicating the issue.
+                  conflictedAuthors:
+                    type: array
+                    items:
+                      type: string
+                    description: List of author IDs that are already registered as vendors.
+              examples:
+                conflict:
+                  summary: Some authors already registered
+                  value:
+                    errorCode: "AUTHORS_ALREADY_REGISTERED"
+                    error: "The following authors are already registered as vendors."
+                    conflictedAuthors:
+                      - "author-12345"
+                      - "author-67890"
+        '500':
+          description: Server error due to unexpected issues.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: string
+                    description: Error code for the server issue.
+                  error:
+                    type: string
+                    description: Error message indicating the server issue.
+              examples:
+                internal-error:
+                  summary: Internal server error
+                  value:
+                    errorCode: "INTERNAL_ERROR"
+                    error: "An unexpected error occurred. Please try again later."
   /api/v1/payouts/:
     post:
       summary: Upload a new file for processing payouts for vendors already registered. Gives a request Id to track further statuses.  
