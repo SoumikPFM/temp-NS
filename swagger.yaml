@@ -246,7 +246,7 @@ paths:
                   error:
                     type: string
                     example: "File with given requestId not found."
-  /api/v1/payouts/{requestId}/status:
+  /api/v1/payouts/{requestId}/:
     get:
       summary: Fetch the processing status of a request
       operationId: getPayoutStatus
@@ -262,40 +262,43 @@ paths:
           description: Status fetched successfully.
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  requestId:
-                    type: string
-                    description: Identifier of the request.
-                  status:
-                    type: string
-                    description: Current status of the request.
-                    example: "Payment Completed"
-                  details:
-                    type: object
-                    description: Additional details about the request processing.
-                    properties:
-                      successfulRows:
-                        type: integer
-                        example: 95
-                      failedRows:
-                        type: integer
-                        example: 5
+              examples:
+                FILE_RECEIVED:
+                  summary: File successfully ingested
+                  value:
+                    requestId: "12345"
+                    status: "FILE_RECEIVED"
+                    details:
+                      message: "File processing completed successfully."
+                FILE_PROCESSING_FAILED:
+                  summary: File processing failed
+                  value:
+                    requestId: "12345"
+                    status: "FILE_PROCESSING_FAILED"
+                    details:
+                      message: "File processing encountered errors."
+                      successfulRows: 95
+                      failedRows: 5
                       errors:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            row:
-                              type: integer
-                              example: 3
-                            error:
-                              type: string
-                              example: "Invalid vendor ID."
-                      resultFileUrl:
-                        type: string
-                        example: "https://s3.amazonaws.com/bucket-name/path-to-file.csv"
+                        - row: 3
+                          error: "Invalid vendor ID."
+                        - row: 7
+                          error: "Missing amount field."
+                PAYMENT_INITIATED:
+                  summary: Payment has been initiated
+                  value:
+                    requestId: "12345"
+                    status: "PAYMENT_INITIATED"
+                    details:
+                      message: "Payment initiation is in progress."
+                PAYMENT_COMPLETED:
+                  summary: Payment completed successfully
+                  value:
+                    requestId: "12345"
+                    status: "PAYMENT_COMPLETED"
+                    details:
+                      message: "Payments processed successfully."
+                      resultFileUrl: "https://s3.amazonaws.com/bucket-name/path-to-results.csv"
         '404':
           description: Request ID not found.
           content:
@@ -305,4 +308,18 @@ paths:
                 properties:
                   error:
                     type: string
+                    description: Error message indicating the request was not found.
                     example: "Request ID not found."
+        '400':
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message describing the issue with the request.
+                    example: "Invalid request format."
+
+
